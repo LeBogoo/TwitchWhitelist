@@ -33,6 +33,13 @@ public final class TwitchWhitelist extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         config = new TwitchWhitelistConfig(getConfig());
+
+        if ("<oauth2:xxxxxxxxxxxxxxxx>".equals(config.getAccessToken())) {
+            getLogger().log(Level.SEVERE, "Please set your access token in the plugins config.yml file and restart the server.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         credential = new OAuth2Credential("twitch", config.getAccessToken());
 
         twitchClient = TwitchClientBuilder.builder()
