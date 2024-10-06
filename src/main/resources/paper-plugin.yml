@@ -1,0 +1,8 @@
+name: TwitchWhitelist
+version: '${version}'
+main: me.lebogo.twitchwhitelist.TwitchWhitelist
+api-version: '1.21'
+prefix: TWL
+authors: [LeBogo]
+description: Uses Twitch Channelpoints to Whitelist Players
+website: https://lebogo.me
