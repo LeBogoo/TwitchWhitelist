@@ -11,32 +11,50 @@ import com.github.twitch4j.helix.domain.CustomRewardList;
 import com.github.twitch4j.helix.domain.UserList;
 import com.github.twitch4j.pubsub.TwitchPubSub;
 import com.github.twitch4j.pubsub.events.ChannelPointsRedemptionEvent;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import me.lebogo.twitchwhitelist.commands.RedemptionCommand;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class TwitchWhitelist extends JavaPlugin {
+    static {
+        ConfigurationSerialization.registerClass(TwitchWhitelisting.class, "TwitchWhitelisting");
+    }
+
     private final Logger logger = getLogger();
     private TwitchWhitelistConfig config;
+    private  WhitelistingStore whitelistingStore;
     private OAuth2Credential credential;
     private TwitchClient twitchClient;
     private TwitchPubSub pubSub;
     private TwitchHelix helix;
     private TwitchChat chat;
     private String channelId;
-    private List<CustomReward> rewards;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         config = new TwitchWhitelistConfig(getConfig());
+
+        String pluginDirectory = getDataFolder().getAbsolutePath();
+        Path whitelistingPath = Path.of(pluginDirectory + "/whitelistings.yml");
+        whitelistingStore = new WhitelistingStore(whitelistingPath);
+
 
         if ("<oauth2:xxxxxxxxxxxxxxxx>".equals(config.getAccessToken())) {
             getLogger().log(Level.SEVERE, "Please set your access token in the plugins config.yml file and restart the server.");
@@ -61,6 +79,12 @@ public final class TwitchWhitelist extends JavaPlugin {
         cleanupCustomRewards();
 
         registerPubSubListeners();
+
+        LifecycleEventManager<Plugin> manager = this.getLifecycleManager();
+        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            final Commands commands = event.registrar();
+            commands.register("redemption", new RedemptionCommand(whitelistingStore));
+        });
     }
 
     private String getChannelId(TwitchHelix helix, String authToken, String channelName) {
@@ -72,7 +96,7 @@ public final class TwitchWhitelist extends JavaPlugin {
     private void cleanupCustomRewards() {
         CustomRewardList customRewards = helix.getCustomRewards(config.getAccessToken(), channelId, null, true).execute();
 
-        rewards = customRewards.getRewards();
+        List<CustomReward> rewards = customRewards.getRewards();
 
         boolean javaPresent = false;
         boolean bedrockPresent = false;
@@ -113,7 +137,7 @@ public final class TwitchWhitelist extends JavaPlugin {
                 helix.deleteCustomReward(config.getAccessToken(), channelId, reward.getId()).execute();
             }
 
-            rewards = createCustomRewards();
+            createCustomRewards();
         } else {
             logger.log(Level.INFO, "Custom rewards already exist, reusing them.");
         }
@@ -145,9 +169,11 @@ public final class TwitchWhitelist extends JavaPlugin {
         }
 
         saveConfig();
+        YamlConfiguration config = new YamlConfiguration();
 
         return rewards;
     }
+
 
     private void registerPubSubListeners() {
         logger.log(Level.INFO, "Registering PubSub listeners.");
@@ -162,13 +188,26 @@ public final class TwitchWhitelist extends JavaPlugin {
 
             String rewardId = event.getRedemption().getReward().getId();
             String username = event.getRedemption().getUserInput();
+            String twitchUsername = event.getRedemption().getUser().getLogin();
             boolean isJava = rewardId.equals(config.getJavaRewardId());
             boolean isBedrock = rewardId.equals(config.getBedrockRewardId());
 
-            // TODO - add check for twitch usernames
-            // TODO - add user-whitelist user datastore
 
-            if (username == null) return;
+
+            for (TwitchWhitelisting whitelisting : whitelistingStore.getWhitelistings()) {
+                // Check if the user already has a whitelist entry
+                if (whitelisting.twitchUsername().equals(twitchUsername)) {
+                    denyRedemption(event);
+                    twitchClient.getChat().sendMessage(config.getChannelName(), "@" + event.getRedemption().getUser().getDisplayName() + " You have already redeemed a whitelisting.");
+                    return;
+                }
+            }
+
+            if (username == null) {
+                denyRedemption(event);
+                twitchClient.getChat().sendMessage(config.getChannelName(), "@" + event.getRedemption().getUser().getDisplayName() + " Please enter a username.");
+                return;
+            }
 
             if (isPlayerWhitelisted(username)) {
                 denyRedemption(event);
@@ -195,6 +234,9 @@ public final class TwitchWhitelist extends JavaPlugin {
 
             String twitchMessage = isJava ? config.getJavaWhitelistSuccessfullMessage() : config.getBedrockWhitelistSuccessfullMessage();
             twitchMessage = twitchMessage.replace("{username}", username);
+
+            whitelistingStore.addWhitelisting(new TwitchWhitelisting(twitchUsername, username, new Date(), isJava));
+            whitelistingStore.save();
 
             twitchClient.getChat().sendMessage(config.getChannelName(), "@" + event.getRedemption().getUser().getDisplayName() + " " + twitchMessage);
         });

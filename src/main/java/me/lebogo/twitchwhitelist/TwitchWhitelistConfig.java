@@ -2,8 +2,6 @@ package me.lebogo.twitchwhitelist;
 
 import org.bukkit.configuration.file.FileConfiguration;
 
-import java.util.List;
-
 public class TwitchWhitelistConfig {
     private final FileConfiguration config;
 
@@ -74,28 +72,6 @@ public class TwitchWhitelistConfig {
 
     public String getBedrockWhitelistSuccessfullMessage() {
         return config.getString("bedrockWhitelistSuccessfullMessage");
-    }
-
-
-    /**
-     * Gets a list of Twitch Usernames that already redeemed any whitelist request
-     *
-     * @return List of Twitch Usernames
-     */
-    public List<String> getRedemptions() {
-        return config.getStringList("redemptions");
-    }
-
-
-    /**
-     * Adds a Twitch Username to the list of redemptions
-     *
-     * @param username Twitch Username
-     */
-    public void addRedemption(String username) {
-        List<String> redemptions = getRedemptions();
-        redemptions.add(username);
-        config.set("redemptions", redemptions);
     }
 
     public FileConfiguration getConfig() {
