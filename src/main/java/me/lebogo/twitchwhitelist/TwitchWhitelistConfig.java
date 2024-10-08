@@ -16,6 +16,7 @@ public class TwitchWhitelistConfig {
     public String getAccessToken() {
         String accessToken = config.getString("accessToken");
         if (accessToken != null && accessToken.startsWith("oauth2:")) accessToken = accessToken.substring(7);
+        if (accessToken.startsWith("oauth:")) accessToken = accessToken.substring(6);
         return accessToken;
     }
 
