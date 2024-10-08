@@ -88,8 +88,29 @@ public final class TwitchWhitelist extends JavaPlugin {
             }
         }
 
-        if ((!javaPresent && config.getJavaToggle()) || (!bedrockPresent && config.getBedrockToggle())) {
-            logger.log(Level.INFO, "Missing custom rewards, creating new ones.");
+        boolean regenerate = false;
+        if (javaPresent && !config.getJavaToggle()) {
+            logger.log(Level.INFO, "Java reward is present but disabled.");
+            regenerate = true;
+        }
+
+        if (bedrockPresent && !config.getBedrockToggle()) {
+            logger.log(Level.INFO, "Bedrock reward is present but disabled.");
+            regenerate = true;
+        }
+
+        if (!javaPresent && config.getJavaToggle()) {
+            logger.log(Level.INFO, "Java reward is missing.");
+            regenerate = true;
+        }
+
+        if (!bedrockPresent && config.getBedrockToggle()) {
+            logger.log(Level.INFO, "Bedrock reward is missing.");
+            regenerate = true;
+        }
+
+        if (regenerate) {
+            logger.log(Level.INFO, "(Re)generating custom rewards...");
             for (CustomReward reward : rewards) {
                 logger.log(Level.INFO, "Deleting old reward: " + reward.getTitle());
                 helix.deleteCustomReward(config.getAccessToken(), channelId, reward.getId()).execute();
@@ -106,6 +127,9 @@ public final class TwitchWhitelist extends JavaPlugin {
 
         List<CustomReward> rewards = new ArrayList<>();
 
+        config.setJavaRewardId("Disabled");
+        config.setBedrockRewardId("Disabled");
+
         if (config.getJavaToggle()) {
             CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
                     .title("Minecraft Java Edition")
@@ -118,8 +142,6 @@ public final class TwitchWhitelist extends JavaPlugin {
 
             rewards.add(javaReward);
             logger.log(Level.INFO, "Created reward: " + javaReward.getTitle());
-
-
         }
 
         if (config.getBedrockToggle()) {
