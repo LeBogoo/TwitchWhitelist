@@ -40,6 +40,13 @@ public class TwitchWhitelistConfig {
         return config.getString("bedrockPrefix");
     }
 
+    public boolean getJavaToggle() {
+        return config.getBoolean("enableJava");
+    }
+    public boolean getBedrockToggle() {
+        return config.getBoolean("enableBedrock");
+    }
+
     public int getRewardCost() {
         return config.getInt("rewardCost");
     }

@@ -13,6 +13,7 @@ import com.github.twitch4j.pubsub.TwitchPubSub;
 import com.github.twitch4j.pubsub.events.ChannelPointsRedemptionEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.logging.Level;
@@ -87,7 +88,7 @@ public final class TwitchWhitelist extends JavaPlugin {
             }
         }
 
-        if (!javaPresent || !bedrockPresent) {
+        if ((!javaPresent && config.getJavaToggle()) || (!bedrockPresent && config.getBedrockToggle())) {
             logger.log(Level.INFO, "Missing custom rewards, creating new ones.");
             for (CustomReward reward : rewards) {
                 logger.log(Level.INFO, "Deleting old reward: " + reward.getTitle());
@@ -102,29 +103,43 @@ public final class TwitchWhitelist extends JavaPlugin {
 
     private List<CustomReward> createCustomRewards() {
         logger.log(Level.INFO, "Creating new reward for Java Edition...");
-        CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
-                .title("Minecraft Java Edition")
-                .cost(config.getRewardCost())
-                .prompt("Please enter your Minecraft Java Edition username.")
-                .isUserInputRequired(true)
-                .build()
-        ).execute().getRewards().get(0);
 
-        logger.log(Level.INFO, "Creating new reward for Bedrock Edition...");
-        CustomReward bedrockReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
-                .title("Minecraft Bedrock Edition")
-                .cost(config.getRewardCost())
-                .prompt("Please enter your Minecraft Bedrock Edition username.")
-                .isUserInputRequired(true)
-                .build()
-        ).execute().getRewards().get(0);
+        List<CustomReward> rewards = new ArrayList<>();
 
-        config.setJavaRewardId(javaReward.getId());
-        config.setBedrockRewardId(bedrockReward.getId());
+        if (config.getJavaToggle()) {
+            CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
+                    .title("Minecraft Java Edition")
+                    .cost(config.getRewardCost())
+                    .prompt("Please enter your Minecraft Java Edition username.")
+                    .isUserInputRequired(true)
+                    .build()
+            ).execute().getRewards().get(0);
+            config.setJavaRewardId(javaReward.getId());
+
+            rewards.add(javaReward);
+            logger.log(Level.INFO, "Created reward: " + javaReward.getTitle());
+
+
+        }
+
+        if (config.getBedrockToggle()) {
+            logger.log(Level.INFO, "Creating new reward for Bedrock Edition...");
+            CustomReward bedrockReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
+                    .title("Minecraft Bedrock Edition")
+                    .cost(config.getRewardCost())
+                    .prompt("Please enter your Minecraft Bedrock Edition username.")
+                    .isUserInputRequired(true)
+                    .build()
+            ).execute().getRewards().get(0);
+            config.setBedrockRewardId(bedrockReward.getId());
+
+            rewards.add(bedrockReward);
+            logger.log(Level.INFO, "Created reward: " + bedrockReward.getTitle());
+        }
+
         saveConfig();
 
-        logger.log(Level.INFO, "Created rewards: " + javaReward.getTitle() + ", " + bedrockReward.getTitle());
-        return List.of(javaReward, bedrockReward);
+        return rewards;
     }
 
     private void registerPubSubListeners() {
