@@ -15,7 +15,6 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import me.lebogo.twitchwhitelist.commands.RedemptionCommand;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -24,7 +23,6 @@ import org.jetbrains.annotations.NotNull;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -38,7 +36,7 @@ public final class TwitchWhitelist extends JavaPlugin {
 
     private final Logger logger = getLogger();
     private TwitchWhitelistConfig config;
-    private  WhitelistingStore whitelistingStore;
+    private WhitelistingStore whitelistingStore;
     private OAuth2Credential credential;
     private TwitchClient twitchClient;
     private TwitchPubSub pubSub;
@@ -89,7 +87,7 @@ public final class TwitchWhitelist extends JavaPlugin {
 
     private String getChannelId(TwitchHelix helix, String authToken, String channelName) {
         UserList userList = helix.getUsers(authToken, null, List.of(channelName)).execute();
-        return userList.getUsers().get(0).getId();
+        return userList.getUsers().getFirst().getId();
     }
 
 
@@ -143,35 +141,29 @@ public final class TwitchWhitelist extends JavaPlugin {
         }
     }
 
-    private List<CustomReward> createCustomRewards() {
+    private void createCustomRewards() {
         logger.log(Level.INFO, "Creating new reward for Java Edition...");
 
-        List<CustomReward> rewards = new ArrayList<>();
 
         config.setJavaRewardId("Disabled");
         config.setBedrockRewardId("Disabled");
 
         if (config.getEnableJava()) {
-            CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder().title("Minecraft Java Edition").cost(config.getRewardCost()).prompt("Please enter your Minecraft Java Edition username.").isUserInputRequired(true).build()).execute().getRewards().get(0);
+            CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder().title("Minecraft Java Edition").cost(config.getRewardCost()).prompt("Please enter your Minecraft Java Edition username.").isUserInputRequired(true).build()).execute().getRewards().getFirst();
             config.setJavaRewardId(javaReward.getId());
 
-            rewards.add(javaReward);
             logger.log(Level.INFO, "Created reward: " + javaReward.getTitle());
         }
 
         if (config.getEnableBedrock()) {
             logger.log(Level.INFO, "Creating new reward for Bedrock Edition...");
-            CustomReward bedrockReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder().title("Minecraft Bedrock Edition").cost(config.getRewardCost()).prompt("Please enter your Minecraft Bedrock Edition username.").isUserInputRequired(true).build()).execute().getRewards().get(0);
+            CustomReward bedrockReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder().title("Minecraft Bedrock Edition").cost(config.getRewardCost()).prompt("Please enter your Minecraft Bedrock Edition username.").isUserInputRequired(true).build()).execute().getRewards().getFirst();
             config.setBedrockRewardId(bedrockReward.getId());
 
-            rewards.add(bedrockReward);
             logger.log(Level.INFO, "Created reward: " + bedrockReward.getTitle());
         }
 
         saveConfig();
-        YamlConfiguration config = new YamlConfiguration();
-
-        return rewards;
     }
 
 
@@ -191,7 +183,6 @@ public final class TwitchWhitelist extends JavaPlugin {
             String twitchUsername = event.getRedemption().getUser().getLogin();
             boolean isJava = rewardId.equals(config.getJavaRewardId());
             boolean isBedrock = rewardId.equals(config.getBedrockRewardId());
-
 
 
             for (TwitchWhitelisting whitelisting : whitelistingStore.getWhitelistings()) {
@@ -268,11 +259,11 @@ public final class TwitchWhitelist extends JavaPlugin {
     }
 
     private boolean isPlayerWhitelisted(String username) {
-        return getServer().getWhitelistedPlayers().stream().anyMatch(player -> player.getName().equals(username));
+        return getServer().getWhitelistedPlayers().stream().anyMatch(player -> Objects.equals(player.getName(), username));
     }
 
     private boolean isPlayerBanned(String username) {
-        return getServer().getBannedPlayers().stream().anyMatch(player -> player.getName().equals(username));
+        return getServer().getBannedPlayers().stream().anyMatch(player -> Objects.equals(player.getName(), username));
     }
 
     public boolean doesJavaPlayerExist(String username) {
