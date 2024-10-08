@@ -12,7 +12,10 @@ import com.github.twitch4j.helix.domain.UserList;
 import com.github.twitch4j.pubsub.TwitchPubSub;
 import com.github.twitch4j.pubsub.events.ChannelPointsRedemptionEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -43,13 +46,7 @@ public final class TwitchWhitelist extends JavaPlugin {
 
         credential = new OAuth2Credential("twitch", config.getAccessToken());
 
-        twitchClient = TwitchClientBuilder.builder()
-                .withDefaultAuthToken(credential)
-                .withEnablePubSub(true)
-                .withChatAccount(credential)
-                .withEnableChat(true)
-                .withEnableHelix(true)
-                .build();
+        twitchClient = TwitchClientBuilder.builder().withDefaultAuthToken(credential).withEnablePubSub(true).withChatAccount(credential).withEnableChat(true).withEnableHelix(true).build();
         twitchClient.getPubSub().connect();
 
         helix = twitchClient.getHelix();
@@ -89,22 +86,22 @@ public final class TwitchWhitelist extends JavaPlugin {
         }
 
         boolean regenerate = false;
-        if (javaPresent && !config.getJavaToggle()) {
+        if (javaPresent && !config.getEnableJava()) {
             logger.log(Level.INFO, "Java reward is present but disabled.");
             regenerate = true;
         }
 
-        if (bedrockPresent && !config.getBedrockToggle()) {
+        if (bedrockPresent && !config.getEnableBedrock()) {
             logger.log(Level.INFO, "Bedrock reward is present but disabled.");
             regenerate = true;
         }
 
-        if (!javaPresent && config.getJavaToggle()) {
+        if (!javaPresent && config.getEnableJava()) {
             logger.log(Level.INFO, "Java reward is missing.");
             regenerate = true;
         }
 
-        if (!bedrockPresent && config.getBedrockToggle()) {
+        if (!bedrockPresent && config.getEnableBedrock()) {
             logger.log(Level.INFO, "Bedrock reward is missing.");
             regenerate = true;
         }
@@ -130,29 +127,17 @@ public final class TwitchWhitelist extends JavaPlugin {
         config.setJavaRewardId("Disabled");
         config.setBedrockRewardId("Disabled");
 
-        if (config.getJavaToggle()) {
-            CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
-                    .title("Minecraft Java Edition")
-                    .cost(config.getRewardCost())
-                    .prompt("Please enter your Minecraft Java Edition username.")
-                    .isUserInputRequired(true)
-                    .build()
-            ).execute().getRewards().get(0);
+        if (config.getEnableJava()) {
+            CustomReward javaReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder().title("Minecraft Java Edition").cost(config.getRewardCost()).prompt("Please enter your Minecraft Java Edition username.").isUserInputRequired(true).build()).execute().getRewards().get(0);
             config.setJavaRewardId(javaReward.getId());
 
             rewards.add(javaReward);
             logger.log(Level.INFO, "Created reward: " + javaReward.getTitle());
         }
 
-        if (config.getBedrockToggle()) {
+        if (config.getEnableBedrock()) {
             logger.log(Level.INFO, "Creating new reward for Bedrock Edition...");
-            CustomReward bedrockReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder()
-                    .title("Minecraft Bedrock Edition")
-                    .cost(config.getRewardCost())
-                    .prompt("Please enter your Minecraft Bedrock Edition username.")
-                    .isUserInputRequired(true)
-                    .build()
-            ).execute().getRewards().get(0);
+            CustomReward bedrockReward = helix.createCustomReward(config.getAccessToken(), channelId, CustomReward.builder().title("Minecraft Bedrock Edition").cost(config.getRewardCost()).prompt("Please enter your Minecraft Bedrock Edition username.").isUserInputRequired(true).build()).execute().getRewards().get(0);
             config.setBedrockRewardId(bedrockReward.getId());
 
             rewards.add(bedrockReward);
@@ -173,15 +158,15 @@ public final class TwitchWhitelist extends JavaPlugin {
                 return;
             }
 
-            String rewardId = event.getRedemption().getReward().getId();
             logger.log(Level.INFO, "Redemption event: " + event.getRedemption().getReward().getTitle());
 
-            String username = null;
-            if (rewardId.equals(config.getJavaRewardId())) {
-                username = event.getRedemption().getUserInput();
-            } else if (rewardId.equals(config.getBedrockRewardId())) {
-                username = config.getBedrockPrefix() + event.getRedemption().getUserInput();
-            }
+            String rewardId = event.getRedemption().getReward().getId();
+            String username = event.getRedemption().getUserInput();
+            boolean isJava = rewardId.equals(config.getJavaRewardId());
+            boolean isBedrock = rewardId.equals(config.getBedrockRewardId());
+
+            // TODO - add check for twitch usernames
+            // TODO - add user-whitelist user datastore
 
             if (username == null) return;
 
@@ -197,11 +182,39 @@ public final class TwitchWhitelist extends JavaPlugin {
                 return;
             }
 
-            fulfillRedemption(event);
-            whitelistPlayer(username);
+            if (isJava && config.getCheckJavaUsernames() && !doesJavaPlayerExist(username)) {
+                denyRedemption(event);
+                twitchClient.getChat().sendMessage(config.getChannelName(), "@" + event.getRedemption().getUser().getDisplayName() + " The username \"" + event.getRedemption().getUserInput() + "\" does not exist.");
+                return;
+            }
 
-            twitchClient.getChat().sendMessage(config.getChannelName(), "@" + event.getRedemption().getUser().getDisplayName() + " Your username \"" + event.getRedemption().getUserInput() + "\" has been whitelisted. You can now join the server!");
+            fulfillRedemption(event);
+
+            String finalWhitelistCommand = getWhitelistCommand(username, isJava, isBedrock);
+            getServer().getScheduler().runTask(this, () -> getServer().dispatchCommand(getServer().getConsoleSender(), finalWhitelistCommand));
+
+            String twitchMessage = isJava ? config.getJavaWhitelistSuccessfullMessage() : config.getBedrockWhitelistSuccessfullMessage();
+            twitchMessage = twitchMessage.replace("{username}", username);
+
+            twitchClient.getChat().sendMessage(config.getChannelName(), "@" + event.getRedemption().getUser().getDisplayName() + " " + twitchMessage);
         });
+    }
+
+    @NotNull
+    private String getWhitelistCommand(String username, boolean isJava, boolean isBedrock) {
+        String whitelistCommand = "say An error occurred while processing the whitelist command. Please contact the Plugin Developer.";
+        if (isJava) {
+            whitelistCommand = config.getJavaWhitelistCommand().replace("{username}", username);
+        } else if (isBedrock) {
+            whitelistCommand = config.getBedrockWhitelistCommand().replace("{username}", username);
+        }
+
+        // remove the leading slash if it exists
+        if (whitelistCommand.startsWith("/")) {
+            whitelistCommand = whitelistCommand.substring(1);
+        }
+
+        return whitelistCommand;
     }
 
     private void denyRedemption(ChannelPointsRedemptionEvent event) {
@@ -220,8 +233,18 @@ public final class TwitchWhitelist extends JavaPlugin {
         return getServer().getBannedPlayers().stream().anyMatch(player -> player.getName().equals(username));
     }
 
-    private void whitelistPlayer(String username) {
-        getServer().getScheduler().runTask(this, () -> getServer().dispatchCommand(getServer().getConsoleSender(), "whitelist add " + username));
+    public boolean doesJavaPlayerExist(String username) {
+        try {
+            URL url = new URL("https://api.mojang.com/users/profiles/minecraft/" + username);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+
+            int responseCode = connection.getResponseCode();
+            return responseCode == 200;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     @Override

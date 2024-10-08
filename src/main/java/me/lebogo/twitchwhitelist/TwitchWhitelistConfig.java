@@ -2,6 +2,8 @@ package me.lebogo.twitchwhitelist;
 
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.List;
+
 public class TwitchWhitelistConfig {
     private final FileConfiguration config;
 
@@ -9,9 +11,7 @@ public class TwitchWhitelistConfig {
         this.config = config;
     }
 
-    public String getChannelName() {
-        return config.getString("channelName");
-    }
+    // ----------------- Twitch -----------------
 
     public String getAccessToken() {
         String accessToken = config.getString("accessToken");
@@ -20,35 +20,82 @@ public class TwitchWhitelistConfig {
         return accessToken;
     }
 
-    public String getJavaRewardId() {
-        return config.getString("javaRewardId");
+    public String getChannelName() {
+        return config.getString("channelName");
     }
 
-    public String getBedrockRewardId() {
-        return config.getString("bedrockRewardId");
+    public int getRewardCost() {
+        return config.getInt("rewardCost");
+    }
+
+    // ----------------- Java -----------------
+
+    public boolean getEnableJava() {
+        return config.getBoolean("enableJava");
+    }
+
+    public boolean getCheckJavaUsernames() {
+        return config.getBoolean("checkJavaUsernames");
+    }
+
+    public String getJavaRewardId() {
+        return config.getString("javaRewardId");
     }
 
     public void setJavaRewardId(String javaRewardId) {
         config.set("javaRewardId", javaRewardId);
     }
 
+    public String getJavaWhitelistCommand() {
+        return config.getString("javaWhitelistCommand");
+    }
+
+    public String getJavaWhitelistSuccessfullMessage() {
+        return config.getString("javaWhitelistSuccessfullMessage");
+    }
+
+    // ----------------- Bedrock -----------------
+
+    public boolean getEnableBedrock() {
+        return config.getBoolean("enableBedrock");
+    }
+
+    public String getBedrockRewardId() {
+        return config.getString("bedrockRewardId");
+    }
+
     public void setBedrockRewardId(String bedrockRewardId) {
         config.set("bedrockRewardId", bedrockRewardId);
     }
 
-    public String getBedrockPrefix() {
-        return config.getString("bedrockPrefix");
+    public String getBedrockWhitelistCommand() {
+        return config.getString("bedrockWhitelistCommand");
     }
 
-    public boolean getJavaToggle() {
-        return config.getBoolean("enableJava");
-    }
-    public boolean getBedrockToggle() {
-        return config.getBoolean("enableBedrock");
+    public String getBedrockWhitelistSuccessfullMessage() {
+        return config.getString("bedrockWhitelistSuccessfullMessage");
     }
 
-    public int getRewardCost() {
-        return config.getInt("rewardCost");
+
+    /**
+     * Gets a list of Twitch Usernames that already redeemed any whitelist request
+     *
+     * @return List of Twitch Usernames
+     */
+    public List<String> getRedemptions() {
+        return config.getStringList("redemptions");
+    }
+
+
+    /**
+     * Adds a Twitch Username to the list of redemptions
+     *
+     * @param username Twitch Username
+     */
+    public void addRedemption(String username) {
+        List<String> redemptions = getRedemptions();
+        redemptions.add(username);
+        config.set("redemptions", redemptions);
     }
 
     public FileConfiguration getConfig() {
