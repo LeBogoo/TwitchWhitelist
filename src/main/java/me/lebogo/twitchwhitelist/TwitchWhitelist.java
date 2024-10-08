@@ -56,7 +56,7 @@ public final class TwitchWhitelist extends JavaPlugin {
         whitelistingStore = new WhitelistingStore(whitelistingPath);
 
 
-        if ("<oauth2:xxxxxxxxxxxxxxxx>".equals(config.getAccessToken())) {
+        if ("<oauth:xxxxxxxxxxxxxxxx>".equals(config.getAccessToken())) {
             getLogger().log(Level.SEVERE, "Please set your access token in the plugins config.yml file and restart the server.");
             getServer().getPluginManager().disablePlugin(this);
             return;
