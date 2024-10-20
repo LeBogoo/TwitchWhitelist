@@ -176,13 +176,19 @@ public final class TwitchWhitelist extends JavaPlugin {
                 return;
             }
 
-            logger.log(Level.INFO, "Redemption event: " + event.getRedemption().getReward().getTitle());
 
             String rewardId = event.getRedemption().getReward().getId();
             String username = event.getRedemption().getUserInput();
             String twitchUsername = event.getRedemption().getUser().getLogin();
             boolean isJava = rewardId.equals(config.getJavaRewardId());
             boolean isBedrock = rewardId.equals(config.getBedrockRewardId());
+
+            if (!isJava && !isBedrock) {
+                // this redemption is not for us. Ignore it.
+                return;
+            }
+
+            logger.log(Level.INFO, "Redemption event: " + event.getRedemption().getReward().getTitle());
 
 
             for (TwitchWhitelisting whitelisting : whitelistingStore.getWhitelistings()) {
