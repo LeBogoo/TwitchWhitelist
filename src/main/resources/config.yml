@@ -1,6 +1,6 @@
 # ------------------------------- Twitch Settings ---------------------------------------------
 
-# Your Oauth token can be generated here: https://id.twitch.tv/oauth2/authorize?response_type=token&client_id=b9co5wpzyrzo8np4zucvtpzb31lhl0&redirect_uri=https://twitchapps.com/tmi/&scope=chat:read+chat:edit+channel:read:redemptions+channel:manage:redemptions&force_verify=true
+# Your Oauth token can be generated here (select "Combined"): https://twitchtoken.lebogo.me/
 accessToken: <oauth:xxxxxxxxxxxxxxxx> # Your Twitch OAuth token
 
 channelName: <channel>
